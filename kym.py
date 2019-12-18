@@ -53,21 +53,40 @@ def search_image(query):
     return parser.images[0]
 
 
+def get_query(event):
+    query = None
+    try:
+        if event["httpMethod"] == "GET":
+            query = event["multiValueQueryStringParameters"]["text"][-1]
+        elif event["httpMethod"] == "POST":
+            if event["isBase64Encoded"]:
+                query_string = base64.b64decode(event["body"]).decode("utf-8")
+            else:
+                query_string = event["body"]
+            query = urllib.parse.parse_qs(query_string)["text"][-1]
+    finally:
+        return query
+
+
 def handler(event, _context=None):
-    query = urllib.parse.parse_qs(base64.b64decode(event["body"]).decode("utf-8"))[
-        "text"
-    ][-1]
-    image_url = search_image(query)
-    if image_url:
-        block = {
-            "type": "image",
-            "image_url": image_url,
-            "alt_text": query,
-        }
+    query = get_query(event)
+    if query:
+        image_url = search_image(query)
+        if image_url:
+            block = {
+                "type": "image",
+                "image_url": image_url,
+                "alt_text": query,
+            }
+        else:
+            block = {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "No images found :("},
+            }
     else:
         block = {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": "No images found :(",},
+            "text": {"type": "mrkdwn", "text": "No query provided :("},
         }
 
     return {
